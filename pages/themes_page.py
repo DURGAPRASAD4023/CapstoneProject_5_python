@@ -30,6 +30,13 @@ class ThemesPage:
 
     def open_themes_page(self):
         self.driver.get("https://wordpress.org/themes/")
+        # # Step 2: Hover Extend
+    extend_menu = wait.until(EC.visibility_of_element_located(EXTEND))
+    ActionChains(driver).move_to_element(extend_menu).perform()
+
+    # Step 3: Open Themes
+    THEMES_LINK = (By.LINK_TEXT, "Themes")
+    wait.until(EC.element_to_be_clickable(THEMES_LINK)).click()
 
     def search_theme(self, theme_name):
         search = self.wait.until(EC.visibility_of_element_located(self.SEARCH_BOX))
