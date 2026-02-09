@@ -1,0 +1,135 @@
+def csvPath = 'C:/Users/YDURGAPRASAD/Downloads/Subregions_1.csv'
+//"C:\Users\YDURGAPRASAD\Downloads\Subregions_1(in).csv"
+ 
+// 2) Sanity checks
+def file = new File(csvPath)
+assert file.exists() : "CSV not found at: ${csvPath}. Verify path & extension (.csv)"
+ 
+// 3) Read all lines (handle BOM) and print a nice preview
+def lines = file.getText('UTF-8').replace('\uFEFF','').readLines()
+assert lines && lines.size() > 0 : "CSV is empty."
+ 
+log.info "------------------------------------------"
+log.info " CSV Path : ${file.absolutePath}"
+log.info " Row Count: ${lines.size()} (including header)"
+log.info " Header   : ${lines[0]}"
+log.info "------------------------------------------"
+ 
+if (lines.size() > 1) {
+    // Print each data row with row index (1..N for data rows)
+    for (int i = 1; i < lines.size(); i++) {
+        def value = lines[i].trim()
+        log.info String.format("Row %d => %s", i, value)
+    }
+} else {
+    log.warn "No data rows found after header."
+}
+// Pick one data row (1 = first after header)
+def rowNum = 1                       // 2,3,... ani marchukovachu
+assert rowNum > 0 && rowNum < lines.size() : "Invalid row number"
+ 
+// Set TestCase property used by request
+def subregion = lines[rowNum].trim()
+context.testCase.setPropertyValue('subregion', subregion)
+log.info " Selected subregion from CSV row ${rowNum}: ${subregion}"
+log.info "------------------------------------------"
+log.info " Preview complete."
+
+import java.nio.charset.StandardCharsets
+import com.eviware.soapui.model.testsuite.TestStepResult
+ 
+
+def CSV_PATH = 'C:/Users/YDURGAPRASAD/Downloads/Subregions_1.csv'
+def REQUEST_STEP_NAME = 'Northern Europe 1 - Request 1'  // <-- exact REST Request step name
+// ======================
+ 
+// Load CSV
+def csvFile = new File(CSV_PATH)
+assert csvFile.exists() : "CSV not found at: ${CSV_PATH}"
+def lines = csvFile.getText(StandardCharsets.UTF_8.name()).replace('\uFEFF','').readLines()
+assert lines?.size() > 1 : "CSV must have a header + at least one data row"
+ 
+def reqStep = testRunner.testCase.testSteps[REQUEST_STEP_NAME]
+assert reqStep : "Request step '${REQUEST_STEP_NAME}' not found in this TestCase"
+ 
+// Run each row (skip header)
+log.info "===== Running all CSV rows (${lines.size()-1} rows) ====="
+log.info "Header: ${lines[0]}"
+ 
+def failures = []
+for (int i = 1; i < lines.size(); i++) {
+    def subregion = lines[i]?.trim()
+    if (!subregion) { 
+        log.warn "Row ${i} is empty. Skipping."
+        continue 
+    }
+ 
+    // Drive the request via TestCase property
+    context.testCase.setPropertyValue('subregion', subregion)
+    log.info " Row ${i}: ${subregion}"
+ 
+    // Execute the REST Request step
+    def result = reqStep.run(testRunner, context)
+    // Status will be an enum like TestStepStatus.OK / FAILED / CANCELLED / etc.
+    def statusEnum = result.status
+    def statusStr  = statusEnum?.toString()    // e.g., "OK" or "FAILED"
+    def msg        = (result.messages?.join(' | ') ?: '').replace('\n',' ').replace('\r',' ')
+
+
+
+
+
+
+
+    if (statusEnum == TestStepResult.TestStepStatus.OK) {
+        log.info " OK: ${subregion}"
+    } else {
+        log.error " FAIL: ${subregion} | ${statusStr} | ${msg}"
+        failures << "Row ${i} (${subregion}) -> ${statusStr} ${msg}"
+    }
+}
+ 
+// Only fail the run if there are real failures
+if (!failures.isEmpty()) {
+    assert false : "Some rows failed:\n - " + failures.join('\n - ')
+}
+ 
+log.info " Completed all rows successfully."
+import java.nio.charset.StandardCharsets
+import com.eviware.soapui.model.testsuite.TestStepResult
+ 
+def CSV_PATH_IN  = 'C:/Users/YDURGAPRASAD/Downloads/Subregions_1.csv'
+def CSV_PATH_OUT = 'C:/Users/YDURGAPRASAD/Downloads/output.csv'
+def REQUEST_STEP_NAME = 'Northern Europe 1 - Request 1' 
+ 
+def inFile = new File(CSV_PATH_IN)
+assert inFile.exists() : "Input CSV not found: ${CSV_PATH_IN}"
+def lines = inFile.getText(StandardCharsets.UTF_8.name()).replace('\uFEFF','').readLines()
+assert lines?.size() > 1 : "Input CSV must have header + data rows"
+ 
+def reqStep = testRunner.testCase.testSteps[REQUEST_STEP_NAME]
+assert reqStep : "Request step '${REQUEST_STEP_NAME}' not found."
+ 
+def outFile = new File(CSV_PATH_OUT)
+outFile.text = "row,subregion,status,message\n"  // header
+ 
+def failures = []
+for (int i = 1; i < lines.size(); i++) {
+    def subregion = lines[i]?.trim()
+    if (!subregion) { outFile << "${i},,SKIPPED,Empty row\n"; continue }
+ 
+    context.testCase.setPropertyValue('subregion', subregion)
+    def result = reqStep.run(testRunner, context)
+    def statusOk = (result.status == TestStepResult.TestStepStatus.OK)
+    def msg = (result.messages?.join(' | ') ?: '').replace('\n',' ').replace('\r',' ').replace(',',';')
+ 
+    outFile << "${i},${subregion},${statusOk ? 'OK' : 'FAILED'},${msg}\n"
+    if (!statusOk) failures << "Row ${i} (${subregion}) -> ${result.status} ${msg}"
+}
+ 
+log.info " Results written to: ${outFile.absolutePath}"
+if (failures) assert false : "Some rows failed:\n - " + failures.join('\n - ')
+log.info " Batch completed."
+
+
+
